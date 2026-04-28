@@ -27,13 +27,14 @@ def register(request):
         return error_response("Validation failed", serializer.errors)
 
     user = serializer.save()
-    otp = create_otp(user, "email_verify")
-    send_otp_email(user, otp, "email_verify")
+    # Auto-verify email for MVP — remove this when email verification is re-enabled
+    user.is_email_verified = True
+    user.save(update_fields=["is_email_verified"])
     log_audit(user, "register", get_client_ip(request))
 
     return success_response(
         UserSerializer(user).data,
-        "Registration successful. Check your email for verification code.",
+        "Registration successful.",
         status.HTTP_201_CREATED,
     )
 

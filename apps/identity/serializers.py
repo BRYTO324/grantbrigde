@@ -34,8 +34,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         user = self.user
         if user.is_suspended:
             raise serializers.ValidationError("Your account has been suspended.")
-        if not user.is_email_verified:
-            raise serializers.ValidationError("Please verify your email before logging in.")
+        # Email verification disabled for MVP — re-enable before production
         data["user"] = UserSerializer(user).data
         return data
 
