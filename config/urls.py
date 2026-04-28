@@ -1,9 +1,13 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+
+    # Redirect root to API docs
+    path("", RedirectView.as_view(url="/api/docs/", permanent=False)),
 
     # API v1
     path("api/v1/auth/", include("apps.identity.urls")),
