@@ -10,7 +10,24 @@ const BASE_URL = import.meta.env.VITE_API_URL
 // ─── Token helpers ────────────────────────────────────────────────────────────
 
 export function getAccessToken(): string | null {
-  return localStorage.getItem('access_token');
+  const token = localStorage.getItem('access_token');
+  if (!token) return null;
+  // Check if token is expired by decoding the payload
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      // Token expired — clear it
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      return null;
+    }
+  } catch {
+    // Invalid token format — clear it
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    return null;
+  }
+  return token;
 }
 
 export function setTokens(access: string, refresh: string) {
@@ -27,20 +44,21 @@ export function clearTokens() {
 
 async function request<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  requiresAuth: boolean = true
 ): Promise<T> {
   const token = getAccessToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  // Only attach token if we have one AND the endpoint requires auth
+  if (token && requiresAuth) headers['Authorization'] = `Bearer ${token}`;
 
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
   const json = await res.json();
 
   if (!res.ok) {
-    // Handle both our envelope errors and SimpleJWT raw errors
     const message =
       json.message ||
       json.detail ||
@@ -88,13 +106,13 @@ export const authApi = {
     request<AuthResponse>('/auth/register/', {
       method: 'POST',
       body: JSON.stringify(payload),
-    }),
+    }, false),
 
   login: (payload: LoginPayload) =>
     request<any>('/auth/login/', {
       method: 'POST',
       body: JSON.stringify(payload),
-    }),
+    }, false),
 
   logout: (refresh: string) =>
     request('/auth/logout/', {
@@ -106,25 +124,25 @@ export const authApi = {
     request('/auth/verify-email/', {
       method: 'POST',
       body: JSON.stringify({ email, code }),
-    }),
+    }, false),
 
   resendVerification: (email: string) =>
     request('/auth/resend-verification/', {
       method: 'POST',
       body: JSON.stringify({ email }),
-    }),
+    }, false),
 
   forgotPassword: (email: string) =>
     request('/auth/password-reset/', {
       method: 'POST',
       body: JSON.stringify({ email }),
-    }),
+    }, false),
 
   resetPassword: (email: string, code: string, new_password: string) =>
     request('/auth/password-reset/confirm/', {
       method: 'POST',
       body: JSON.stringify({ email, code, new_password }),
-    }),
+    }, false),
 
   me: () => request<AuthResponse>('/auth/me/'),
 };
